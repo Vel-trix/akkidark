@@ -10,7 +10,7 @@ const DOWNLOADS_JSON = path.join(__dirname, "..", "downloads.json");
 const MAX_RETRIES = 3;
 const CHANNEL_ID = "UCrB8j1YCbuYhIcImwNkJgCg"; // 🔥 Hardcoded Channel ID
 
-// Ensure the spray directory exists
+// Ensure the download directory exists
 if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 }
@@ -44,9 +44,9 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
             const videoTitle = video.title;
             const filePath = path.join(DOWNLOAD_DIR, `${videoId}.mp3`);
 
-            // Skip if already downloaded
-            if (downloadsData[videoId] && fs.existsSync(filePath)) {
-                console.log(`⏭️ Skipping ${videoTitle}, already downloaded.`);
+            // Skip if already downloaded and valid
+            if (downloadsData[videoId] && fs.existsSync(filePath) && downloadsData[videoId].size > 0) {
+                console.log(`⏭️ Skipping ${videoTitle}, already downloaded and valid.`);
                 continue;
             }
 
@@ -91,6 +91,10 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
 
                     // Get file size
                     const fileSize = fs.statSync(filePath).size;
+
+                    if (fileSize === 0) {
+                        throw new Error("Downloaded file size is 0 bytes");
+                    }
 
                     console.log(`✅ Downloaded: ${filePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
