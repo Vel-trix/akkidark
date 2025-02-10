@@ -9,6 +9,7 @@ const DOWNLOAD_DIR = path.join(__dirname, "..", "akkidark");
 const DOWNLOADS_JSON = path.join(__dirname, "..", "downloads.json");
 const MAX_RETRIES = 3;
 const CHANNEL_ID = "UCrB8j1YCbuYhIcImwNkJgCg"; // 🔥 Hardcoded Channel ID
+const FILE_BASE_URL = "https://lucent-truffle-a87150.netlify.app/akkidark/";
 
 // Ensure the download directory exists
 if (!fs.existsSync(DOWNLOAD_DIR)) {
@@ -42,7 +43,9 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
         for (const video of videos) {
             const videoId = video.id;
             const videoTitle = video.title;
-            const filePath = path.join(DOWNLOAD_DIR, `${videoId}.mp3`);
+            const filename = `${videoId}.mp3`;
+            const filePath = path.join(DOWNLOAD_DIR, filename);
+            const fileUrl = `${FILE_BASE_URL}${filename}`;
 
             // Skip if already downloaded and valid
             if (downloadsData[videoId] && fs.existsSync(filePath) && downloadsData[videoId].size > 0) {
@@ -102,7 +105,7 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
                     downloadsData[videoId] = {
                         title: videoTitle,
                         id: videoId,
-                        filePath: filePath,
+                        filePath: fileUrl, // Updated to use URL format
                         size: fileSize
                     };
 
