@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
-const COBALT_API = "https://cobalt-api.kwiatekmiki.com";
+const MP3_API = "https://backendmix.vercel.app/mp3";
 const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 const DOWNLOAD_DIR = path.join(__dirname, "..", "akkidark");
 const DOWNLOADS_JSON = path.join(__dirname, "..", "downloads.json");
@@ -16,11 +16,17 @@ if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 }
 
-// Load existing downloads data
+// Load existing downloads data and update old file paths
 let downloadsData = {};
 if (fs.existsSync(DOWNLOADS_JSON)) {
     try {
         downloadsData = JSON.parse(fs.readFileSync(DOWNLOADS_JSON, "utf-8"));
+        for (const videoId in downloadsData) {
+            if (!downloadsData[videoId].filePath.startsWith(FILE_BASE_URL)) {
+                downloadsData[videoId].filePath = `${FILE_BASE_URL}${videoId}.mp3`;
+            }
+        }
+        fs.writeFileSync(DOWNLOADS_JSON, JSON.stringify(downloadsData, null, 2));
     } catch (err) {
         console.error("❌ Failed to load downloads.json, resetting file.");
         downloadsData = {};
@@ -37,53 +43,43 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
             process.exit(1);
         }
 
-        const videos = response.data.videos;
-        console.log(`📹 Found ${videos.length} videos. Checking for new downloads...`);
+        const videoIds = response.data.videos; // Now just an array of video IDs
+        console.log(`📹 mujhe ${videoIds.length} videos mili h dekhta hu kitni bachi h`);
 
-        for (const video of videos) {
-            const videoId = video.id;
-            const videoTitle = video.title;
+        for (const videoId of videoIds) {
             const filename = `${videoId}.mp3`;
             const filePath = path.join(DOWNLOAD_DIR, filename);
             const fileUrl = `${FILE_BASE_URL}${filename}`;
 
             // Skip if already downloaded and valid
             if (downloadsData[videoId] && fs.existsSync(filePath) && downloadsData[videoId].size > 0) {
-                console.log(`⏭️ Skipping ${videoTitle}, already downloaded and valid.`);
+                console.log(`⏭️ isko ${videoId}, Skip kar rha hu kyoki sahi h`);
                 continue;
             }
 
-            console.log(`🎵 Downloading audio for: ${videoTitle} (ID: ${videoId})...`);
+            console.log(`🎵 kisa download kar rha hu samjha kya ${videoId}...`);
 
             let success = false;
             for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
                     console.log(`🔄 Attempt ${attempt}/${MAX_RETRIES}...`);
 
-                    // Get the download URL from Cobalt API
-                    const downloadResponse = await axios.post(
-                        `${COBALT_API}/`,
-                        {
-                            url: `https://www.youtube.com/watch?v=${videoId}`,
-                            audioFormat: "mp3",
-                            downloadMode: "audio"
-                        },
-                        {
-                            headers: {
-                                "Accept": "application/json",
-                                "Content-Type": "application/json"
-                            }
-                        }
-                    );
+                    // Get the download URL from the new MP3 API
+                    const downloadResponse = await axios.get(`${MP3_API}/${videoId}`);
+                    const { url, title } = downloadResponse.data;
 
-                    const { status, url } = downloadResponse.data;
-                    if (status !== "redirect" && status !== "tunnel") {
-                        throw new Error("Failed to retrieve audio URL");
+                    if (!url) {
+                        throw new Error("phuck ho ga guru");
                     }
 
                     // Download the audio file
                     const writer = fs.createWriteStream(filePath);
-                    const audioResponse = await axios({ url, method: "GET", responseType: "stream" });
+                    const audioResponse = await axios({
+                        url,
+                        method: "GET",
+                        responseType: "stream",
+                        timeout: 30000 // 30 second timeout
+                    });
 
                     audioResponse.data.pipe(writer);
 
@@ -99,13 +95,13 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
                         throw new Error("Downloaded file size is 0 bytes");
                     }
 
-                    console.log(`✅ Downloaded: ${filePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+                    console.log(`✅ kaam ho gya guru ${filePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
                     // Save to downloads.json
                     downloadsData[videoId] = {
-                        title: videoTitle,
+                        title: title || videoId, // Use title from API response if available
                         id: videoId,
-                        filePath: fileUrl, // Updated to use URL format
+                        filePath: fileUrl,
                         size: fileSize
                     };
 
@@ -116,15 +112,17 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
                     success = true;
                     break;
                 } catch (err) {
-                    console.error(`⚠️ Error downloading ${videoTitle}: ${err.message}`);
+                    console.error(`⚠️ phuck ho gya guru ${videoId}: ${err.message}`);
                     if (attempt === MAX_RETRIES) {
                         console.error(`❌ Failed after ${MAX_RETRIES} attempts, skipping.`);
                     }
+                    // Add a delay before retrying
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
 
             if (!success) {
-                console.error(`🚨 Skipped: ${videoTitle} due to repeated errors.`);
+                console.error(`🚨 Skipped: ${videoId} due to repeated errors.`);
             }
         }
     } catch (error) {
