@@ -67,6 +67,7 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
                     // Get the download URL and filename from the MP3 API
                     const downloadResponse = await axios.get(`${MP3_API}/${videoId}`);
                     const { url, filename: videoTitle } = downloadResponse.data;
+                    console.log(url)
 
                     if (!url) {
                         throw new Error("phuck ho ga guru");
@@ -83,7 +84,7 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
                         url,
                         method: "GET",
                         responseType: "stream",
-                        timeout: 30000
+                        timeout: 3000000
                     });
 
                     audioResponse.data.pipe(writer);
