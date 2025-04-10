@@ -9,7 +9,7 @@ const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 
 // Configuration
 const TEMP_DOWNLOAD_DIR = path.join(__dirname, "..", "temp_downloads");
-const DOWNLOADS_JSON = path.join(__dirname, "..", "downloads.json");
+const DOWNLOADS_JSON = path.join(__dirname, "..", "akkidark.json");
 const MAX_RETRIES = 5;
 const CHANNEL_ID = "UCrB8j1YCbuYhIcImwNkJgCg"; // Hardcoded Channel ID
 
@@ -29,7 +29,7 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
         downloadsData = JSON.parse(fs.readFileSync(DOWNLOADS_JSON, "utf-8"));
         console.log(`📋 Loaded ${Object.keys(downloadsData).length} existing downloads from JSON`);
     } catch (err) {
-        console.error("❌ Failed to load downloads.json, resetting file.");
+        console.error("❌ Failed to load akkidaark.json, resetting file.");
         downloadsData = {};
     }
 }
