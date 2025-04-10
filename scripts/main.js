@@ -9,9 +9,22 @@ const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 
 // Configuration
 const TEMP_DOWNLOAD_DIR = path.join(__dirname, "..", "temp_downloads");
-const DOWNLOADS_JSON = path.join(__dirname, "..", "akkidark.json");
+const DOWNLOADS_JSON = path.join(__dirname, "..", "downloads.json");
 const MAX_RETRIES = 5;
-const CHANNEL_ID = "UCrB8j1YCbuYhIcImwNkJgCg"; // Hardcoded Channel ID
+
+// List of channel IDs to process
+const CHANNEL_IDS = [
+    'UCyBzV_g6Vfv5GM3aMQb3Y_A',
+    'UCrB8j1YCbuYhIcImwNkJgCg',
+    'UCPGNioeYrJq4nyAt-DVIHZg',
+    'UCEEi1lDCkKi1ukmTAgc9-zA',
+    'UCVIq229U5A54UVzHQJqZCPQ',
+    'UCcKMjICfQPjiVMpqS-yF7hA',
+    'UCWcQCJHYOK2ZZRA2Sym0mOw',
+    'UCn372MiubHTkPFwxKVv45LQ',
+    'UCUF0EGa7_yM4TXQl4LYt-YA',
+    'UCRidj8Tvrnf5jeIwzFDj0FQ'
+];
 
 // Internet Archive configuration
 const IA_IDENTIFIER = "akkidark";
@@ -29,7 +42,7 @@ if (fs.existsSync(DOWNLOADS_JSON)) {
         downloadsData = JSON.parse(fs.readFileSync(DOWNLOADS_JSON, "utf-8"));
         console.log(`📋 Loaded ${Object.keys(downloadsData).length} existing downloads from JSON`);
     } catch (err) {
-        console.error("❌ Failed to load akkidaark.json, resetting file.");
+        console.error("❌ Failed to load downloads.json, resetting file.");
         downloadsData = {};
     }
 }
@@ -251,19 +264,6 @@ function createProgressBar(percent) {
 }
 
 /**
- * Display download progress
- * @param {number} current Current index
- * @param {number} total Total files
- * @param {string} videoId Current video ID
- */
-function showDownloadProgress(current, total, videoId) {
-    const percent = (current / total) * 100;
-    const progressBar = createProgressBar(percent);
-    
-    process.stdout.write(`\r${progressBar} ${percent.toFixed(1)}% | ${current}/${total} | Downloading: ${videoId}`);
-}
-
-/**
  * Commit changes to the downloads.json file
  */
 function commitChangesToJson() {
@@ -280,16 +280,28 @@ function commitChangesToJson() {
 }
 
 /**
- * Main function to download videos and upload to Internet Archive
+ * Process a single channel
+ * @param {string} channelId The YouTube channel ID to process
+ * @returns {object} Statistics for this channel's processing
  */
-(async () => {
+async function processChannel(channelId) {
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🎬 PROCESSING CHANNEL: ${channelId}`);
+    console.log(`${'='.repeat(80)}`);
+    
     try {
-        console.log(`🔍 Fetching videos for channel ID: ${CHANNEL_ID}...`);
-        const response = await axios.get(`${CHANNEL_API}/${CHANNEL_ID}`);
+        console.log(`🔍 Fetching videos for channel ID: ${channelId}...`);
+        const response = await axios.get(`${CHANNEL_API}/${channelId}`);
 
         if (!response.data || !response.data.videos || response.data.videos.length === 0) {
-            console.error("❌ No videos found for this channel.");
-            process.exit(1);
+            console.error(`❌ No videos found for channel ${channelId}.`);
+            return {
+                channelId,
+                total: 0,
+                processed: 0,
+                skipped: 0,
+                errors: 0
+            };
         }
 
         const videoIds = response.data.videos;
@@ -314,7 +326,7 @@ function commitChangesToJson() {
         const downloadedFiles = [];
         const failedIds = [];
 
-        // PHASE 1: DOWNLOAD ALL FILES
+        // PHASE 1: DOWNLOAD ALL FILES - NO PROGRESS DISPLAY
         console.log(`\n📥 PHASE 1: DOWNLOADING ALL FILES`);
         console.log(`${'='.repeat(50)}`);
         
@@ -323,17 +335,17 @@ function commitChangesToJson() {
             const filename = `${videoId}.webm`;
             const filePath = path.join(TEMP_DOWNLOAD_DIR, filename);
 
-            // Show download progress
-            showDownloadProgress(i + 1, videosToProcess.length, videoId);
+            // Just show which video we're currently working on (no progress bar)
+            console.log(`📥 Downloading (${i + 1}/${videosToProcess.length}): ${videoId}`);
 
             let downloadSuccess = false;
             let videoTitle = `Video ${videoId}`;
             
             for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
-                    // Clear the current line for attempt message
-                    process.stdout.write("\r" + " ".repeat(80) + "\r");
-                    console.log(`\n🔄 Download attempt ${attempt}/${MAX_RETRIES} for ${videoId}...`);
+                    if (attempt > 1) {
+                        console.log(`🔄 Download attempt ${attempt}/${MAX_RETRIES} for ${videoId}...`);
+                    }
 
                     // Get the download URL and filename from the MP3 API
                     const downloadResponse = await axios.get(`${MP3_API}/${videoId}`);
@@ -411,11 +423,10 @@ function commitChangesToJson() {
             }
         }
         
-        // End of download phase - move to next line
-        console.log("\n" + `${'='.repeat(50)}`);
+        console.log(`${'='.repeat(50)}`);
         console.log(`📥 Download phase complete: ${downloadedFiles.length} files downloaded, ${failedIds.length} failed`);
 
-        // PHASE 2: BATCH UPLOAD ALL DOWNLOADED FILES
+        // PHASE 2: BATCH UPLOAD ALL DOWNLOADED FILES - WITH PROGRESS DISPLAY
         console.log(`\n📤 PHASE 2: BATCH UPLOADING ${downloadedFiles.length} FILES`);
         console.log(`${'='.repeat(50)}`);
         
@@ -443,7 +454,8 @@ function commitChangesToJson() {
                     const filename = path.basename(fileInfo.filePath);
                     const iaFilePath = `${IA_BASE_URL}${filename}`;
                     
-                    // Update downloads.json
+                    // Update downloads.json with SAME structure as your existing entries
+                    // NO channelId field to maintain compatibility
                     downloadsData[videoId] = {
                         title: fileInfo.title,
                         id: videoId,
@@ -460,7 +472,7 @@ function commitChangesToJson() {
             
             // Save updated downloads JSON
             fs.writeFileSync(DOWNLOADS_JSON, JSON.stringify(downloadsData, null, 2));
-            console.log(`📝 Updated downloads.json with ${processedCount} new entries`);
+            console.log(`📝 Updated downloads.json with ${processedCount} new entries for channel ${channelId}`);
             
             // Commit changes
             if (processedCount > 0) {
@@ -490,30 +502,94 @@ function commitChangesToJson() {
         console.log(`🗑️ Removed ${cleanedUp} downloaded files`);
         console.log(`${'='.repeat(50)}`);
 
-        console.log(`\n📊 Final Summary:`);
+        console.log(`\n📊 Channel Summary for ${channelId}:`);
         console.log(`✅ Successfully processed: ${processedCount} videos`);
         console.log(`⏭️ Skipped (already processed): ${skippedCount} videos`);
         console.log(`❌ Failed: ${errorCount} videos`);
-        console.log(`🌐 Internet Archive collection: https://archive.org/details/${IA_IDENTIFIER}`);
-
+        
+        return {
+            channelId,
+            total: videoIds.length,
+            processed: processedCount,
+            skipped: skippedCount,
+            errors: errorCount
+        };
     } catch (error) {
-        console.error("❌ Error:", error.message);
-        process.exit(1);
-    } finally {
-        // Double-check and clean up any remaining files in temp directory
-        try {
-            const tempFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR)
-                .filter(file => file.endsWith('.webm'));
+        console.error(`❌ Error processing channel ${channelId}:`, error.message);
+        return {
+            channelId,
+            total: 0,
+            processed: 0,
+            skipped: 0,
+            errors: 1,
+            error: error.message
+        };
+    }
+}
+
+/**
+ * Main function to process all channels one by one
+ */
+(async () => {
+    try {
+        console.log(`🚀 Starting multi-channel processing job for ${CHANNEL_IDS.length} channels`);
+        console.log(`${'='.repeat(80)}`);
+        
+        const channelResults = [];
+        let totalProcessed = 0;
+        let totalSkipped = 0;
+        let totalErrors = 0;
+        let totalVideos = 0;
+
+        // Process each channel one by one
+        for (let i = 0; i < CHANNEL_IDS.length; i++) {
+            const channelId = CHANNEL_IDS[i];
+            console.log(`\n🎬 Processing channel ${i+1}/${CHANNEL_IDS.length}: ${channelId}`);
             
-            if (tempFiles.length > 0) {
-                console.log(`🧹 Cleaning up ${tempFiles.length} remaining temporary files...`);
-                tempFiles.forEach(file => {
-                    const filePath = path.join(TEMP_DOWNLOAD_DIR, file);
-                    fs.unlinkSync(filePath);
-                });
+            const result = await processChannel(channelId);
+            channelResults.push(result);
+            
+            totalProcessed += result.processed;
+            totalSkipped += result.skipped;
+            totalErrors += result.errors;
+            totalVideos += result.total;
+            
+            // Clean up any temporary files that might remain
+            try {
+                const tempFiles = fs.readdirSync(TEMP_DOWNLOAD_DIR)
+                    .filter(file => file.endsWith('.webm'));
+                
+                if (tempFiles.length > 0) {
+                    console.log(`🧹 Cleaning up ${tempFiles.length} remaining temporary files...`);
+                    tempFiles.forEach(file => {
+                        const filePath = path.join(TEMP_DOWNLOAD_DIR, file);
+                        fs.unlinkSync(filePath);
+                    });
+                }
+            } catch (err) {
+                console.error(`⚠️ Error during cleanup: ${err.message}`);
             }
-        } catch (err) {
-            console.error(`⚠️ Error during final cleanup: ${err.message}`);
         }
+
+        // Print final summary
+        console.log(`\n\n${'='.repeat(80)}`);
+        console.log(`📊 FINAL SUMMARY FOR ALL ${CHANNEL_IDS.length} CHANNELS`);
+        console.log(`${'='.repeat(80)}`);
+        console.log(`Total videos found: ${totalVideos}`);
+        console.log(`✅ Successfully processed: ${totalProcessed} videos`);
+        console.log(`⏭️ Skipped (already processed): ${totalSkipped} videos`);
+        console.log(`❌ Failed: ${totalErrors} videos`);
+        console.log(`🌐 Internet Archive collection: https://archive.org/details/${IA_IDENTIFIER}`);
+        console.log(`${'='.repeat(80)}`);
+        
+        // Print individual channel results
+        console.log(`\nChannel-by-channel results:`);
+        channelResults.forEach((result, index) => {
+            console.log(`${index+1}. ${result.channelId}: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} failed`);
+        });
+        
+    } catch (error) {
+        console.error("❌ Fatal Error:", error.message);
+        process.exit(1);
     }
 })();
