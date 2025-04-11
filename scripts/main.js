@@ -5,6 +5,7 @@ const { execSync, spawnSync } = require("child_process");
 
 // API endpoints
 const MP3_API = "https://backendmix.vercel.app/mp3";
+const FALLBACK_API = "https://ytdlp-api-ox2d.onrender.com/rv";
 const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 
 // Configuration
@@ -264,6 +265,33 @@ function createProgressBar(percent) {
 }
 
 /**
+ * Try to download using fallback API
+ * @param {string} videoId YouTube video ID
+ * @returns {Promise<{url: string, title: string}>} Download URL and title
+ */
+async function tryFallbackApi(videoId) {
+    console.log(`🔄 Trying fallback API for ${videoId}...`);
+    
+    try {
+        const fallbackResponse = await axios.get(`${FALLBACK_API}/${videoId}`, {
+            timeout: 120000 // 2 minute timeout since this API can be slow (15s-1min)
+        });
+        
+        if (!fallbackResponse.data || !fallbackResponse.data.url) {
+            throw new Error("No URL in fallback API response");
+        }
+        
+        return {
+            url: fallbackResponse.data.url,
+            filename: fallbackResponse.data.title || `Video ${videoId}`
+        };
+    } catch (err) {
+        console.error(`❌ Fallback API failed: ${err.message}`);
+        throw err; // Re-throw to be handled by caller
+    }
+}
+
+/**
  * Commit changes to the downloads.json file
  */
 function commitChangesToJson() {
@@ -321,6 +349,7 @@ async function processChannel(channelId) {
 
         let processedCount = 0;
         let errorCount = 0;
+        let fallbackCount = 0;
         
         // Track downloaded files for batch upload
         const downloadedFiles = [];
@@ -340,6 +369,7 @@ async function processChannel(channelId) {
 
             let downloadSuccess = false;
             let videoTitle = `Video ${videoId}`;
+            let usedFallback = false;
             
             for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
@@ -347,12 +377,42 @@ async function processChannel(channelId) {
                         console.log(`🔄 Download attempt ${attempt}/${MAX_RETRIES} for ${videoId}...`);
                     }
 
-                    // Get the download URL and filename from the MP3 API
-                    const downloadResponse = await axios.get(`${MP3_API}/${videoId}`);
-                    const { url, filename: titleFromApi } = downloadResponse.data;
-
-                    if (!url) {
-                        throw new Error("No download URL returned from API");
+                    let url, titleFromApi;
+                    
+                    // Try primary API first
+                    if (!usedFallback && attempt <= MAX_RETRIES - 1) {
+                        try {
+                            const downloadResponse = await axios.get(`${MP3_API}/${videoId}`, {
+                                timeout: 30000 // 30 second timeout
+                            });
+                            url = downloadResponse.data.url;
+                            titleFromApi = downloadResponse.data.filename;
+                            
+                            if (!url) {
+                                throw new Error("No download URL returned from primary API");
+                            }
+                        } catch (primaryApiErr) {
+                            console.error(`⚠️ Primary API failed: ${primaryApiErr.message}`);
+                            
+                            // If we're on the last retry attempt, switch to fallback
+                            if (attempt === MAX_RETRIES - 1) {
+                                usedFallback = true;
+                                const fallbackResult = await tryFallbackApi(videoId);
+                                url = fallbackResult.url;
+                                titleFromApi = fallbackResult.filename;
+                                console.log(`🔀 Switched to fallback API for ${videoId}`);
+                                fallbackCount++;
+                            } else {
+                                throw primaryApiErr; // Re-throw to retry with primary API
+                            }
+                        }
+                    } else if (usedFallback || attempt === MAX_RETRIES) {
+                        // On the last attempt or if we've already decided to use fallback
+                        usedFallback = true;
+                        const fallbackResult = await tryFallbackApi(videoId);
+                        url = fallbackResult.url;
+                        titleFromApi = fallbackResult.filename;
+                        if (!usedFallback) fallbackCount++; // Only increment if first time using fallback
                     }
 
                     // Clean up filename to use as title (remove .mp3 extension if present)
@@ -385,6 +445,9 @@ async function processChannel(channelId) {
 
                     console.log(`✅ Downloaded ${filename} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
                     console.log(`📝 Title: ${videoTitle}`);
+                    if (usedFallback) {
+                        console.log(`ℹ️ Used fallback API for this download`);
+                    }
 
                     downloadedFiles.push({
                         filePath: filePath,
@@ -425,6 +488,7 @@ async function processChannel(channelId) {
         
         console.log(`${'='.repeat(50)}`);
         console.log(`📥 Download phase complete: ${downloadedFiles.length} files downloaded, ${failedIds.length} failed`);
+        console.log(`🔀 Used fallback API for ${fallbackCount} downloads`);
 
         // PHASE 2: BATCH UPLOAD ALL DOWNLOADED FILES - WITH PROGRESS DISPLAY
         console.log(`\n📤 PHASE 2: BATCH UPLOADING ${downloadedFiles.length} FILES`);
@@ -455,7 +519,7 @@ async function processChannel(channelId) {
                     const iaFilePath = `${IA_BASE_URL}${filename}`;
                     
                     // Update downloads.json with SAME structure as your existing entries
-                    // NO channelId field to maintain compatibility
+                    // NO additional fields to maintain compatibility
                     downloadsData[videoId] = {
                         title: fileInfo.title,
                         id: videoId,
@@ -506,13 +570,15 @@ async function processChannel(channelId) {
         console.log(`✅ Successfully processed: ${processedCount} videos`);
         console.log(`⏭️ Skipped (already processed): ${skippedCount} videos`);
         console.log(`❌ Failed: ${errorCount} videos`);
+        console.log(`🔀 Used fallback API: ${fallbackCount} times`);
         
         return {
             channelId,
             total: videoIds.length,
             processed: processedCount,
             skipped: skippedCount,
-            errors: errorCount
+            errors: errorCount,
+            fallbackUsed: fallbackCount
         };
     } catch (error) {
         console.error(`❌ Error processing channel ${channelId}:`, error.message);
@@ -522,6 +588,7 @@ async function processChannel(channelId) {
             processed: 0,
             skipped: 0,
             errors: 1,
+            fallbackUsed: 0,
             error: error.message
         };
     }
@@ -540,6 +607,7 @@ async function processChannel(channelId) {
         let totalSkipped = 0;
         let totalErrors = 0;
         let totalVideos = 0;
+        let totalFallbackUsed = 0;
 
         // Process each channel one by one
         for (let i = 0; i < CHANNEL_IDS.length; i++) {
@@ -553,6 +621,7 @@ async function processChannel(channelId) {
             totalSkipped += result.skipped;
             totalErrors += result.errors;
             totalVideos += result.total;
+            totalFallbackUsed += result.fallbackUsed || 0;
             
             // Clean up any temporary files that might remain
             try {
@@ -579,13 +648,14 @@ async function processChannel(channelId) {
         console.log(`✅ Successfully processed: ${totalProcessed} videos`);
         console.log(`⏭️ Skipped (already processed): ${totalSkipped} videos`);
         console.log(`❌ Failed: ${totalErrors} videos`);
+        console.log(`🔀 Used fallback API: ${totalFallbackUsed} times`);
         console.log(`🌐 Internet Archive collection: https://archive.org/details/${IA_IDENTIFIER}`);
         console.log(`${'='.repeat(80)}`);
         
         // Print individual channel results
         console.log(`\nChannel-by-channel results:`);
         channelResults.forEach((result, index) => {
-            console.log(`${index+1}. ${result.channelId}: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} failed`);
+            console.log(`${index+1}. ${result.channelId}: ${result.processed} processed, ${result.skipped} skipped, ${result.errors} failed, ${result.fallbackUsed || 0} fallback API used`);
         });
         
     } catch (error) {
