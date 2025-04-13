@@ -24,7 +24,8 @@ const CHANNEL_IDS = [
     'UCWcQCJHYOK2ZZRA2Sym0mOw',
     'UCn372MiubHTkPFwxKVv45LQ',
     'UCUF0EGa7_yM4TXQl4LYt-YA',
-    'UCRidj8Tvrnf5jeIwzFDj0FQ'
+    'UCRidj8Tvrnf5jeIwzFDj0FQ',
+    'UCz67TNWBqU38S8VRvjDO2wg'
 ];
 
 // Internet Archive configuration
