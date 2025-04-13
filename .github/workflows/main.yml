@@ -1,7 +1,7 @@
 name: UPDATE CREPTUOONS DB
 on:
   schedule:
-    - cron: '0 */3 * * *'  # Runs every 3 hours (00:00, 03:00, 06:00, etc. UTC)
+    - cron: '0 */7 * * *'  # Runs every 3 hours (00:00, 03:00, 06:00, etc. UTC)
   workflow_dispatch:  # Allows manual trigger
 permissions:
   contents: write  # ✅ Allows pushing changes to the repo
