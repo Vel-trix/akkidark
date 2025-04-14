@@ -26,10 +26,10 @@ const CHANNEL_IDS = [
     'UCn372MiubHTkPFwxKVv45LQ', // Fintale
     'UCUF0EGa7_yM4TXQl4LYt-YA', // Alpha Crime
     'UCRidj8Tvrnf5jeIwzFDj0FQ', // BADMASH icON
-    'UCz67TNWBqU38S8VRvjDO2wg'  // Khooni Monday
+    'UCz67TNWBqU38S8VRvjDO2wg',  // Khooni Monday
     'UC0XWC2_UZMkXPGn4bj0R2Uw', //scary pumpkin
     'UCpGhKw1m80zRsS7xUvUruaQ', //Once Upon A Time - Horror Hindi
-    'UC2OE2tbj4O3wo14M-tspGzw' //HORROR PODCAST SHOW
+    'UC2OE2tbj4O3wo14M-tspGzw'  //HORROR PODCAST SHOW
 ];
 
 // Internet Archive configuration
