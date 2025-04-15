@@ -29,7 +29,8 @@ const CHANNEL_IDS = [
     'UCz67TNWBqU38S8VRvjDO2wg',  // Khooni Monday
     'UC0XWC2_UZMkXPGn4bj0R2Uw', //scary pumpkin
     'UCpGhKw1m80zRsS7xUvUruaQ', //Once Upon A Time - Horror Hindi
-    'UC2OE2tbj4O3wo14M-tspGzw'  //HORROR PODCAST SHOW
+    'UC2OE2tbj4O3wo14M-tspGzw',  //HORROR PODCAST SHOW
+    'UCHa1_v_jRPdJFdU9tmOwxDA'   //Gaurav katare Extra
 ];
 
 // Internet Archive configuration
