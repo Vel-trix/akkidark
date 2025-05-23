@@ -4,7 +4,7 @@ const path = require("path");
 const { execSync, spawnSync } = require("child_process");
 
 // API endpoints
-const MP3_API = "https://backendmix.vercel.app/mp3";
+const MP3_API = "https://backend-nl8q.onrender.com/mp3";
 const FALLBACK_API = "https://ytdlp-api-ox2d.onrender.com/rv";
 const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 
