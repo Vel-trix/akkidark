@@ -5,7 +5,7 @@ const { execSync, spawnSync } = require("child_process");
 
 // API endpoints
 const MP3_API = "https://backend-nl8q.onrender.com/mp3";
-const FALLBACK_API = "https://ytdlp-api-ox2d.onrender.com/rv";
+const FALLBACK_API = "https://unofficial-chatgpt-api-rg80.onrender.com/aud";
 const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
 
 // Configuration
