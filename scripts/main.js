@@ -34,7 +34,7 @@ const CHANNEL_IDS = [
 ];
 
 // Internet Archive configuration
-const IA_IDENTIFIER = "akkidark";
+const IA_IDENTIFIER = "VELINDBOFPODCAST";
 const IA_ACCESS_KEY = "cCYXD3V4ke4YkXLI";
 const IA_SECRET_KEY = "qZHSAtgw5TJXkpZa";
 const IA_BASE_URL = `https://cdn-velin.vercel.app/`;
