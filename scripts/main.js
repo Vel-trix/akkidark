@@ -37,7 +37,7 @@ const CHANNEL_IDS = [
 const IA_IDENTIFIER = "VELINDBOFPODCAST";
 const IA_ACCESS_KEY = "cCYXD3V4ke4YkXLI";
 const IA_SECRET_KEY = "qZHSAtgw5TJXkpZa";
-const IA_BASE_URL = `https://cdn-velin.vercel.app/`;
+const IA_BASE_URL = `https://archive.org/download/VELINDBOFPODCAST/`;
 
 // Ensure the download directory exists
 fs.ensureDirSync(TEMP_DOWNLOAD_DIR);
